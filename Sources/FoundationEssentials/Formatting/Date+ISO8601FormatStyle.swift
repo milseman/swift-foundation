@@ -461,7 +461,7 @@ extension Date.ISO8601FormatStyle {
         var components: DateComponents
     }
     
-    private func components(from inputString: String, in view: borrowing BufferView<UInt8>) throws -> ComponentsParseResult {
+    private func components(in view: borrowing BufferView<UInt8>) throws -> ComponentsParseResult {
         let fields = formatFields
         
         var it = view.makeIterator()
@@ -469,7 +469,7 @@ extension Date.ISO8601FormatStyle {
         var dc = DateComponents()
         if fields.contains(.year) {
             let max = dateSeparator == .omitted ? 4 : nil
-            let value = try it.digits(maxDigits: max, input: inputString, onFailure: self.format(Date.now))
+            let value = try it.digits(maxDigits: max, input: view, onFailure: self.format(Date.now))
             if fields.contains(.weekOfYear) {
                 dc.yearForWeekOfYear = value
             } else {
@@ -484,30 +484,30 @@ extension Date.ISO8601FormatStyle {
         
         if fields.contains(.month) {
             if needsSeparator && dateSeparator == .dash {
-                try it.expectCharacter(UInt8(ascii: "-"), input: inputString, onFailure: self.format(Date.now))
+                try it.expectCharacter(UInt8(ascii: "-"), input: view, onFailure: self.format(Date.now))
             }
             
             // parse month digits
             let max = dateSeparator == .omitted ? 2 : nil
-            let value = try it.digits(maxDigits: max, input: inputString, onFailure: self.format(Date.now))
+            let value = try it.digits(maxDigits: max, input: view, onFailure: self.format(Date.now))
             guard _calendar.maximumRange(of: .month)!.contains(value) else {
-                throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                throw parseError(view, exampleFormattedString: self.format(Date.now))
             }
             dc.month = value
 
             needsSeparator = true
         } else if fields.contains(.weekOfYear) {
             if needsSeparator && dateSeparator == .dash {
-                try it.expectCharacter(UInt8(ascii: "-"), input: inputString, onFailure: self.format(Date.now))
+                try it.expectCharacter(UInt8(ascii: "-"), input: view, onFailure: self.format(Date.now))
             }
             // parse W
-            try it.expectCharacter(UInt8(ascii: "W"), input: inputString, onFailure: self.format(Date.now))
+            try it.expectCharacter(UInt8(ascii: "W"), input: view, onFailure: self.format(Date.now))
 
             // parse week of year digits
             let max = dateSeparator == .omitted ? 2 : nil
-            let value = try it.digits(maxDigits: max, input: inputString, onFailure: self.format(Date.now))
+            let value = try it.digits(maxDigits: max, input: view, onFailure: self.format(Date.now))
             guard _calendar.maximumRange(of: .weekOfYear)!.contains(value) else {
-                throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                throw parseError(view, exampleFormattedString: self.format(Date.now))
             }
             dc.weekOfYear = value
             
@@ -519,26 +519,26 @@ extension Date.ISO8601FormatStyle {
         
         if fields.contains(.day) {
             if needsSeparator && dateSeparator == .dash {
-                try it.expectCharacter(UInt8(ascii: "-"), input: inputString, onFailure: self.format(Date.now))
+                try it.expectCharacter(UInt8(ascii: "-"), input: view, onFailure: self.format(Date.now))
             }
             
             if fields.contains(.weekOfYear) {
                 // parse day of week ('ee')
                 // ISO8601 "1" is Monday. For our date components, 2 is Monday. Add 1 to account for difference.
                 let max = dateSeparator == .omitted ? 2 : nil
-                let value = (try it.digits(maxDigits: max, input: inputString, onFailure: self.format(Date.now)) % 7) + 1
+                let value = (try it.digits(maxDigits: max, input: view, onFailure: self.format(Date.now)) % 7) + 1
                 
                 guard _calendar.maximumRange(of: .weekday)!.contains(value) else {
-                    throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                    throw parseError(view, exampleFormattedString: self.format(Date.now))
                 }
                 dc.weekday = value
                 
             } else if fields.contains(.month) {
                 // parse day of month ('dd')
                 let max = dateSeparator == .omitted ? 2 : nil
-                let value = try it.digits(maxDigits: max, input: inputString, onFailure: self.format(Date.now))
+                let value = try it.digits(maxDigits: max, input: view, onFailure: self.format(Date.now))
                 guard _calendar.maximumRange(of: .day)!.contains(value) else {
-                    throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                    throw parseError(view, exampleFormattedString: self.format(Date.now))
                 }
 
                 dc.day = value
@@ -546,9 +546,9 @@ extension Date.ISO8601FormatStyle {
             } else {
                 // parse 3 digit day of year ('DDD')
                 let max = dateSeparator == .omitted ? 3 : nil
-                let value = try it.digits(maxDigits: max, input: inputString, onFailure: self.format(Date.now))
+                let value = try it.digits(maxDigits: max, input: view, onFailure: self.format(Date.now))
                 guard _calendar.maximumRange(of: .dayOfYear)!.contains(value) else {
-                    throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                    throw parseError(view, exampleFormattedString: self.format(Date.now))
                 }
 
                 dc.dayOfYear = value
@@ -562,30 +562,30 @@ extension Date.ISO8601FormatStyle {
                 switch dateTimeSeparator {
                 case .standard:
                     // parse T
-                    try it.expectCharacter(UInt8(ascii: "T"), input: inputString, onFailure: self.format(Date.now))
+                    try it.expectCharacter(UInt8(ascii: "T"), input: view, onFailure: self.format(Date.now))
                 case .space:
                     // parse any number of spaces
-                    try it.expectOneOrMoreCharacters(UInt8(ascii: " "), input: inputString, onFailure: self.format(Date.now))
+                    try it.expectOneOrMoreCharacters(UInt8(ascii: " "), input: view, onFailure: self.format(Date.now))
                 }
             }
             
             switch timeSeparator {
             case .colon:
-                dc.hour = try it.digits(input: inputString, onFailure: self.format(Date.now))
-                try it.expectCharacter(UInt8(ascii: ":"), input: inputString, onFailure: self.format(Date.now))
-                dc.minute = try it.digits(input: inputString, onFailure: self.format(Date.now))
-                try it.expectCharacter(UInt8(ascii: ":"), input: inputString, onFailure: self.format(Date.now))
-                dc.second = try it.digits(input: inputString, onFailure: self.format(Date.now))
+                dc.hour = try it.digits(input: view, onFailure: self.format(Date.now))
+                try it.expectCharacter(UInt8(ascii: ":"), input: view, onFailure: self.format(Date.now))
+                dc.minute = try it.digits(input: view, onFailure: self.format(Date.now))
+                try it.expectCharacter(UInt8(ascii: ":"), input: view, onFailure: self.format(Date.now))
+                dc.second = try it.digits(input: view, onFailure: self.format(Date.now))
             case .omitted:
-                dc.hour = try it.digits(maxDigits: 2, input: inputString, onFailure: self.format(Date.now))
-                dc.minute = try it.digits(maxDigits: 2, input: inputString, onFailure: self.format(Date.now))
-                dc.second = try it.digits(maxDigits: 2, input: inputString, onFailure: self.format(Date.now))
+                dc.hour = try it.digits(maxDigits: 2, input: view, onFailure: self.format(Date.now))
+                dc.minute = try it.digits(maxDigits: 2, input: view, onFailure: self.format(Date.now))
+                dc.second = try it.digits(maxDigits: 2, input: view, onFailure: self.format(Date.now))
             }
             
             if includingFractionalSeconds {
-                try it.expectCharacter(UInt8(ascii: "."), input: inputString, onFailure: self.format(Date.now))
+                try it.expectCharacter(UInt8(ascii: "."), input: view, onFailure: self.format(Date.now))
                 
-                let fractionalSeconds = try it.digits(nanoseconds: true, input: inputString, onFailure: self.format(Date.now))
+                let fractionalSeconds = try it.digits(nanoseconds: true, input: view, onFailure: self.format(Date.now))
                 dc.nanosecond = fractionalSeconds
             }
             
@@ -600,7 +600,7 @@ extension Date.ISO8601FormatStyle {
             
             guard let plusOrMinusOrZ = it.next() else {
                 // Expected time zone
-                throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                throw parseError(view, exampleFormattedString: self.format(Date.now))
             }
 
             let tz: TimeZone
@@ -645,7 +645,7 @@ extension Date.ISO8601FormatStyle {
                     positive = false
                 } else {
                     // Expected time zone, found garbage
-                    throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                    throw parseError(view, exampleFormattedString: self.format(Date.now))
                 }
     
                 if !skipDigits {
@@ -653,7 +653,7 @@ extension Date.ISO8601FormatStyle {
 
                     // parse Time Zone: ISO8601 extended hms?, with Z
                     // examples: -08:00, -07:52:58, Z
-                    let hours = try it.digits(maxDigits: 2, input: inputString, onFailure: self.format(Date.now))
+                    let hours = try it.digits(maxDigits: 2, input: view, onFailure: self.format(Date.now))
                     
                     // Expect a colon, or not
                     if let maybeColon = it.peek(), maybeColon == UInt8(ascii: ":") {
@@ -661,7 +661,7 @@ extension Date.ISO8601FormatStyle {
                         it.advance()
                     }
                     
-                    let minutes = try it.digits(maxDigits: 2, input: inputString, onFailure: self.format(Date.now))
+                    let minutes = try it.digits(maxDigits: 2, input: view, onFailure: self.format(Date.now))
                     
                     if let maybeColon = it.peek(), maybeColon == UInt8(ascii: ":") {
                         // Throw it away
@@ -670,7 +670,7 @@ extension Date.ISO8601FormatStyle {
 
                     if let secondsTens = it.peek(), isASCIIDigit(secondsTens) {
                         // We have seconds
-                        let seconds = try it.digits(maxDigits: 2, input: inputString, onFailure: self.format(Date.now))
+                        let seconds = try it.digits(maxDigits: 2, input: view, onFailure: self.format(Date.now))
                         tzOffset = (hours * 3600) + (minutes * 60) + seconds
                     } else {
                         // If the next character is missing, that's allowed - the time can be something like just -0852 and then the string can end
@@ -683,7 +683,7 @@ extension Date.ISO8601FormatStyle {
                 } else {
                     guard let parsedTimeZone = TimeZone(secondsFromGMT: positive ? tzOffset : -tzOffset) else {
                         // Out of range time zone
-                        throw parseError(inputString, exampleFormattedString: self.format(Date.now))
+                        throw parseError(view, exampleFormattedString: self.format(Date.now))
                     }
                     
                     tz = parsedTimeZone
@@ -742,7 +742,7 @@ extension Date.ISO8601FormatStyle : ParseStrategy {
         let result = v.withUTF8 { buffer -> (Int, Date)? in
             let view = BufferView(unsafeBufferPointer: buffer)!
 
-            guard let comps = try? components(from: value, in: view) else {
+            guard let comps = try? components(in: view) else {
                 return nil
             }
             
