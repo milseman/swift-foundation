@@ -41,6 +41,8 @@ if let useLocalPackageEnv = Context.environment["SWIFTCI_USE_LOCAL_DEPS"], !useL
     } else {
         usePackage = .useLocalPackage(useLocalPackageEnv)
     }
+} else if let usePackageEnv = Context.environment["USE_LOCAL_PACKAGE"], !usePackageEnv.isEmpty {
+    usePackage = .useLocalPackage("../..")
 } else if let usePackageEnv = Context.environment["USE_PACKAGE"], !usePackageEnv.isEmpty {
     usePackage = .useGitHubPackage
 } else {
